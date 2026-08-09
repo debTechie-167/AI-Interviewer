@@ -34,35 +34,36 @@ Candidate Profile (candidate.json)
   Feedback Agent  (aggregates all evaluations into final structured feedback)
 
   Project Structure
+  
 ai-interview-agent/
-├── app.py                     # Flask entrypoint, registers blueprints
+├── app.py                     
 ├── api/
-│   ├── interview.py           # POST /api/interview — the required endpoint
-│   └── feedback.py            # GET /api/feedback/<session_id>
+│   ├── interview.py          
+│   └── feedback.py            
 ├── agents/
-│   ├── planner_agent.py       # Builds the question plan (min 8 Qs, 4+ days)
-│   ├── question_agent.py      # Rephrases a question into interviewer speech
-│   ├── followup_agent.py      # Decides + generates follow-up questions
-│   ├── evaluation_agent.py    # Scores each answer
-│   └── feedback_agent.py      # Aggregates final feedback
+│   ├── planner_agent.py      
+│   ├── question_agent.py      
+│   ├── followup_agent.py      
+│   ├── evaluation_agent.py    
+│   └── feedback_agent.py      
 ├── graph/
-│   └── state.py                # TypedDicts for the interview state schema
+│   └── state.py                
 ├── services/
-│   ├── interview_manager.py   # Orchestrates the interview turn-by-turn
-│   ├── session_manager.py     # In-memory session store
-│   ├── candidate_analyzer.py  # Derives strengths/weaknesses from candidate.json
-│   ├── curriculum_loader.py   # Loads and indexes curriculum.json
-│   └── gemini_service.py      # Centralized Gemini client (+ mock fallback)
+│   ├── interview_manager.py   
+│   ├── session_manager.py   
+│   ├── candidate_analyzer.py
+│   ├── curriculum_loader.py   
+│   └── gemini_service.py      
 ├── rag/
-│   ├── qdrant_client.py       # Qdrant client (local or cloud), with fallback
-│   ├── embeddings.py          # Gemini embeddings for curriculum chunks
-│   ├── retriever.py           # Curriculum search (vector + local keyword fallback)
-│   └── ingest.py              # One-time curriculum → Qdrant ingestion script
+│   ├── qdrant_client.py       
+│   ├── embeddings.py          
+│   ├── retriever.py          
+│   └── ingest.py              
 ├── data/
-│   ├── curriculum.json        # 31-day, 8-module cohort curriculum
-│   ├── candidates.json        # Sample candidate profiles
-│   └── technical-spec.md      # API contract this project implements
-├── frontend/                  # Static UI served by Flask (index/interview/report)
+│   ├── curriculum.json        
+│   ├── candidates.json      
+│   └── technical-spec.md     
+├── frontend/                 
 └── requirements.txt
 
 Setup
