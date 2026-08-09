@@ -79,9 +79,9 @@ class EmbeddingService:
 # Singleton
 # ==========================================
 
-embedding_service = (
-    EmbeddingService()
-)
+## embedding_service = (
+##  EmbeddingService()
+##)
 
 
 def get_embeddings_model() -> GoogleGenerativeAIEmbeddings:
