@@ -91,6 +91,23 @@ Running the App
 powershell
 python app.py
 
+Deploy on Vercel
+
+1. Push this repository to GitHub.
+2. Import the project in the Vercel dashboard (Framework Preset: Other).
+3. Add environment variables in Vercel → Settings → Environment Variables:
+   - `GEMINI_API_KEY` — required for live AI interviews
+   - `AI_INTERVIEW_DEMO_MODE=0`
+   - Optional: `QDRANT_URL` and `QDRANT_API_KEY` for cloud vector search
+4. Deploy. No build command is required.
+
+Static pages are served from `public/`. API routes are handled by the Flask app in `api/index.py`.
+
+For local Vercel-style testing:
+
+powershell
+npx vercel dev
+
 API Contract
 
 Implements the single endpoint defined in data/technical-spec.md.

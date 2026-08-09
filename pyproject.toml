@@ -1,0 +1,13 @@
+[project]
+name = "ai-interviewer"
+version = "1.0.0"
+description = "AI-powered technical interview system"
+requires-python = ">=3.11"
+dependencies = [
+    "Flask>=3.0,<4.0",
+    "python-dotenv>=1.0,<2.0",
+    "google-genai>=1.0,<2.0",
+]
+
+[tool.vercel]
+entrypoint = "api.index:app"

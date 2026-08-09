@@ -1,33 +1,40 @@
 import os
 
 try:
-    from langchain_google_genai import GoogleGenerativeAIEmbeddings
+    from google import genai
 except Exception:
-    class GoogleGenerativeAIEmbeddings:
-        def __init__(self, model: str, google_api_key: str = ""):
-            self.model = model
+    genai = None
 
-        def embed_query(self, text: str):
-            return [0.0]
+
+class _DummyEmbeddings:
+    def embed_query(self, text: str):
+        return [0.0]
+
+
+class _GeminiEmbeddings:
+    def __init__(self, api_key: str):
+        self._client = genai.Client(api_key=api_key)
+
+    def embed_query(self, text: str):
+        response = self._client.models.embed_content(
+            model="text-embedding-004",
+            contents=text,
+        )
+        return response.embeddings[0].values
 
 
 class EmbeddingService:
-
     def __init__(self):
-        # Check both environment variable naming conventions
         api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
 
-        if api_key:
-            self.model = GoogleGenerativeAIEmbeddings(
-                model="models/embedding-001",
-                google_api_key=api_key
-            )
-        else:
-            # Safe dummy fallback if no API key is provided
-            class DummyEmbeddings:
-                def embed_query(self, text: str):
-                    return [0.0]
-            self.model = DummyEmbeddings()
+        if api_key and genai is not None:
+            try:
+                self.model = _GeminiEmbeddings(api_key)
+                return
+            except Exception:
+                pass
+
+        self.model = _DummyEmbeddings()
 
     def get_model(self):
         return self.model
@@ -40,8 +47,8 @@ class EmbeddingService:
             return False
 
 
-# Singleton getter function (Lazily instantiated to prevent boot crashes)
 _embedding_service_instance = None
+
 
 def get_embeddings_model():
     global _embedding_service_instance

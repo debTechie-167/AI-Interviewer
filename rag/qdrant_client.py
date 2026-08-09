@@ -93,6 +93,12 @@ class QdrantService:
             "QDRANT_API_KEY"
         )
 
+        is_serverless = bool(
+            os.getenv("VERCEL")
+            or os.getenv("VERCEL_ENV")
+            or os.getenv("AWS_LAMBDA_FUNCTION_NAME")
+        )
+
         # -------------------------------
         # Cloud Mode
         # -------------------------------
@@ -105,14 +111,22 @@ class QdrantService:
             )
 
         # -------------------------------
-        # Local Mode
+        # Serverless / Local Mode
         # -------------------------------
+
+        elif is_serverless:
+
+            # Vercel has a read-only filesystem except /tmp — avoid local disk.
+            self.client = QdrantClient(":memory:")
 
         else:
 
-            self.client = QdrantClient(
-                path="./qdrant_data"
-            )
+            try:
+                self.client = QdrantClient(
+                    path="./qdrant_data"
+                )
+            except Exception:
+                self.client = QdrantClient(":memory:")
 
     # =====================================
     # Create Collection

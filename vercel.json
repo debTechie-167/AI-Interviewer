@@ -1,26 +1,18 @@
 {
-  "version": 2,
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/interview",
+      "destination": "/interview.html"
+    },
+    {
+      "source": "/report",
+      "destination": "/report.html"
+    }
+  ],
   "functions": {
     "api/index.py": {
       "maxDuration": 60
     }
-  },
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/index.py"
-    },
-    {
-      "src": "/",
-      "dest": "/frontend/index.html"
-    },
-    {
-      "src": "/interview",
-      "dest": "/frontend/interview.html"
-    },
-    {
-      "src": "/report",
-      "dest": "/frontend/report.html"
-    }
-  ]
+  }
 }
