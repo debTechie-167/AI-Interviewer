@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Live Interview — AI Interview Agent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+
+/* ============================= TOKENS ============================= */
+:root{
+  --bg:#020617;
+  --surface:#0F172A;
+  --surface-2:#0b1526;
+  --surface-3:#132038;
+  --blue:#3B82F6;
+  --cyan:#06B6D4;
+  --purple:#A855F7;
+  --text:#F8FAFC;
+  --text-dim:#94A3B8;
+  --text-faint:#546077;
+  --border:rgba(148,163,184,0.14);
+  --border-strong:rgba(148,163,184,0.26);
+  --grad-primary:linear-gradient(135deg,var(--blue),var(--cyan));
+  --grad-accent:linear-gradient(135deg,var(--purple),var(--blue));
+  --font-display:"Space Grotesk",sans-serif;
+  --font-body:"Inter",sans-serif;
+  --font-mono:"JetBrains Mono",monospace;
+  --ease:cubic-bezier(.19,1,.22,1);
+  --nav-h:64px;
+}
+
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--font-body);
+  -webkit-font-smoothing:antialiased;
+  overflow:hidden;
+}
+::selection{background:rgba(59,130,246,.35);color:#fff;}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;}
+button:disabled{cursor:not-allowed;opacity:.4;}
+input,textarea{font-family:inherit;}
+
+/* ambient backdrop */
+.ambient{position:fixed;inset:0;z-index:-1;pointer-events:none;}
+.ambient::before{
+  content:"";position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse 50% 40% at 12% 8%, rgba(59,130,246,.14), transparent 60%),
+    radial-gradient(ellipse 45% 35% at 90% 12%, rgba(168,85,247,.12), transparent 60%),
+    radial-gradient(ellipse 40% 45% at 50% 100%, rgba(6,182,212,.08), transparent 60%);
+}
+.ambient::after{
+  content:"";position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(148,163,184,0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148,163,184,0.035) 1px, transparent 1px);
+  background-size:44px 44px;
+}
+
+/* ============================= SHARED ============================= */
+.glass{
+  background:rgba(15,23,42,0.55);
+  border:1px solid var(--border);
+  backdrop-filter:blur(16px) saturate(140%);
+  -webkit-backdrop-filter:blur(16px) saturate(140%);
+}
+.card{
+  border-radius:18px;
+  padding:1.4rem 1.5rem;
+  position:relative;
+  transition:border-color .3s ease, transform .3s ease;
+}
+.card:hover{border-color:var(--border-strong);}
+.card-label{
+  font-family:var(--font-mono);
+  font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--text-faint);
+  margin-bottom:1rem;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 6px var(--cyan);}
+
+/* skeleton loading */
+.skel{
+  display:inline-block;height:14px;border-radius:6px;
+  background:linear-gradient(90deg, rgba(148,163,184,0.08) 25%, rgba(148,163,184,0.18) 37%, rgba(148,163,184,0.08) 63%);
+  background-size:400% 100%;
+  animation:shimmer 1.8s ease-in-out infinite;
+}
+@keyframes shimmer{0%{background-position:100% 0;}100%{background-position:-100% 0;}}
+
+/* scrollbars */
+.scroll::-webkit-scrollbar{width:6px;}
+.scroll::-webkit-scrollbar-track{background:transparent;}
+.scroll::-webkit-scrollbar-thumb{background:rgba(148,163,184,0.2);border-radius:99px;}
+
+/* ============================= APP SHELL ============================= */
+.app-shell{height:100vh;display:flex;flex-direction:column;}
+
+/* ---- top nav ---- */
+.topnav{
+  height:var(--nav-h);flex:0 0 auto;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 1.6rem;
+  border-bottom:1px solid var(--border);
+  background:rgba(2,6,23,0.75);
+  backdrop-filter:blur(14px);
+  z-index:50;
+}
+.nav-left{display:flex;align-items:center;gap:1.4rem;}
+.brand{display:flex;align-items:center;gap:.6rem;font-family:var(--font-display);font-weight:600;font-size:.95rem;}
+.brand-orb{
+  width:18px;height:18px;border-radius:50%;
+  background:conic-gradient(from 180deg,var(--blue),var(--cyan),var(--purple),var(--blue));
+  position:relative;animation:spin 6s linear infinite;flex:0 0 auto;
+}
+.brand-orb::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--bg);}
+@keyframes spin{to{transform:rotate(360deg);}}
+.nav-divider{width:1px;height:20px;background:var(--border-strong);}
+
+.status-pill{
+  display:flex;align-items:center;gap:.5rem;
+  font-family:var(--font-mono);font-size:.74rem;color:var(--text-dim);
+  padding:.4rem .75rem;border-radius:999px;
+  border:1px solid var(--border);background:rgba(255,255,255,0.02);
+}
+.status-pill .dot{animation:pulseDot 1.8s ease-in-out infinite;}
+@keyframes pulseDot{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.4;transform:scale(.7);}}
+.status-pill[data-state="speaking"] .dot{background:var(--blue);box-shadow:0 0 8px var(--blue);}
+.status-pill[data-state="listening"] .dot{background:var(--cyan);box-shadow:0 0 8px var(--cyan);}
+.status-pill[data-state="recording"] .dot{background:var(--purple);box-shadow:0 0 8px var(--purple);}
+.status-pill[data-state="processing"] .dot,
+.status-pill[data-state="generating"] .dot,
+.status-pill[data-state="loading"] .dot{background:var(--cyan);box-shadow:0 0 8px var(--cyan);}
+.status-pill[data-state="idle"] .dot{background:var(--text-faint);box-shadow:none;animation:none;}
+
+.nav-right{display:flex;align-items:center;gap:1.2rem;}
+.session-meta{display:flex;flex-direction:column;align-items:flex-end;line-height:1.2;}
+.session-meta .k{font-family:var(--font-mono);font-size:.64rem;color:var(--text-faint);letter-spacing:.08em;text-transform:uppercase;}
+.session-meta .v{font-family:var(--font-mono);font-size:.82rem;color:var(--text-dim);}
+.timer-block{display:flex;align-items:center;gap:.5rem;font-family:var(--font-mono);font-size:.95rem;color:var(--text);}
+.timer-block svg{color:var(--cyan);}
+
+.candidate-status{
+  display:flex;align-items:center;gap:.5rem;
+  padding:.4rem .7rem;border-radius:999px;
+  border:1px solid var(--border);background:rgba(255,255,255,0.02);
+  font-size:.78rem;color:var(--text-dim);
+}
+.candidate-status .dot{background:var(--text-faint);box-shadow:none;}
+.candidate-status.online .dot{background:var(--cyan);box-shadow:0 0 6px var(--cyan);animation:pulseDot 1.8s ease-in-out infinite;}
+
+/* ---- workspace grid ---- */
+.workspace{
+  flex:1 1 auto;min-height:0;
+  display:grid;
+  grid-template-columns:290px 1fr 300px;
+  gap:1px;
+  background:var(--border);
+}
+.pane{background:var(--bg);overflow-y:auto;padding:1.2rem;}
+.pane.scroll{scrollbar-gutter:stable;}
+.pane-inner{display:flex;flex-direction:column;gap:1.1rem;}
+
+/* ============================= CANDIDATE CARD ============================= */
+.candidate-avatar-row{display:flex;align-items:center;gap:.9rem;margin-bottom:1.2rem;}
+.candidate-avatar{
+  width:44px;height:44px;border-radius:12px;flex:0 0 auto;
+  background:linear-gradient(150deg, rgba(59,130,246,.22), rgba(168,85,247,.16));
+  border:1px solid var(--border-strong);
+  display:flex;align-items:center;justify-content:center;color:var(--cyan);
+}
+.field-row{display:flex;justify-content:space-between;align-items:center;padding:.6rem 0;border-top:1px solid var(--border);font-size:.85rem;}
+.field-row:first-of-type{border-top:none;}
+.field-row .k{color:var(--text-faint);font-size:.76rem;}
+.field-row .v{color:var(--text);font-weight:500;}
+.field-row .skel{width:70px;}
+
+.diff-badge{
+  font-family:var(--font-mono);font-size:.68rem;padding:.24rem .6rem;border-radius:999px;
+  border:1px solid var(--border-strong);color:var(--text-dim);
+  text-transform:uppercase;letter-spacing:.06em;
+}
+.diff-badge[data-level="beginner"]{border-color:rgba(6,182,212,.4);color:var(--cyan);}
+.diff-badge[data-level="intermediate"]{border-color:rgba(59,130,246,.45);color:#93c1ff;}
+.diff-badge[data-level="advanced"]{border-color:rgba(168,85,247,.45);color:#d9b3fb;}
+
+/* progress card */
+.progress-track{width:100%;height:7px;border-radius:99px;background:rgba(148,163,184,0.12);overflow:hidden;margin:.8rem 0 1rem;}
+.progress-fill{height:100%;width:0%;border-radius:99px;background:var(--grad-primary);transition:width .6s var(--ease);box-shadow:0 0 12px rgba(59,130,246,.5);}
+.progress-stats{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:.76rem;color:var(--text-dim);margin-bottom:1.1rem;}
+.progress-stats b{color:var(--text);font-weight:600;}
+.topic-chips{display:flex;flex-wrap:wrap;gap:.4rem;}
+.topic-chip{
+  font-size:.72rem;padding:.3rem .6rem;border-radius:8px;
+  background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.22);color:#a9c9ff;
+}
+.topic-chip.empty{background:transparent;border-style:dashed;color:var(--text-faint);}
+.topic-chip.pending{background:transparent;border-style:dashed;border-color:var(--border-strong);color:var(--text-faint);}
+.topic-chip.covered{background:rgba(6,182,212,.1);border-color:rgba(6,182,212,.35);color:var(--cyan);}
+.topic-chip.covered::before{content:"✓ ";}
+
+/* ============================= CENTER PANEL ============================= */
+.center-pane{padding:1.2rem 1.6rem;}
+
+/* AI interviewer card */
+.ai-card{
+  display:flex;align-items:center;gap:1.6rem;
+  padding:1.6rem;
+  border-radius:20px;
+  background:linear-gradient(160deg, rgba(59,130,246,.05), rgba(168,85,247,.04));
+}
+.ai-avatar-wrap{position:relative;width:96px;height:96px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;}
+.ai-ring{position:absolute;inset:0;border-radius:50%;border:1px solid rgba(59,130,246,.3);}
+.ai-ring.r2{inset:12px;border-color:rgba(6,182,212,.28);}
+.ai-core{
+  position:absolute;inset:24px;border-radius:50%;
+  background:radial-gradient(circle at 32% 28%, #8fc0ff, var(--blue) 40%, var(--purple) 85%);
+  box-shadow:0 0 30px 4px rgba(59,130,246,.45);
+  display:flex;align-items:center;justify-content:center;
+  transition:box-shadow .4s ease, background .4s ease;
+}
+.ai-core svg{color:#04101f;position:relative;z-index:2;}
+.mini-wave{position:absolute;bottom:26px;left:50%;translate:-50% 0;display:flex;gap:2px;align-items:flex-end;height:18px;z-index:3;}
+.mini-wave span{width:2px;border-radius:1px;background:#e6f1ff;opacity:.9;animation:mwave 1s ease-in-out infinite;}
+.mini-wave span:nth-child(1){height:5px;animation-delay:0s;}
+.mini-wave span:nth-child(2){height:11px;animation-delay:.1s;}
+.mini-wave span:nth-child(3){height:16px;animation-delay:.2s;}
+.mini-wave span:nth-child(4){height:9px;animation-delay:.3s;}
+.mini-wave span:nth-child(5){height:13px;animation-delay:.4s;}
+@keyframes mwave{0%,100%{transform:scaleY(.4);}50%{transform:scaleY(1);}}
+
+/* state-driven avatar */
+.ai-avatar-wrap[data-state="idle"] .ai-ring{animation:none;opacity:.4;}
+.ai-avatar-wrap[data-state="idle"] .ai-core{box-shadow:0 0 14px 2px rgba(59,130,246,.25);}
+.ai-avatar-wrap[data-state="idle"] .mini-wave{display:none;}
+
+.ai-avatar-wrap[data-state="speaking"] .ai-ring{animation:ringPulse 1.6s ease-in-out infinite;}
+.ai-avatar-wrap[data-state="speaking"] .ai-ring.r2{animation-delay:.3s;}
+.ai-avatar-wrap[data-state="speaking"] .ai-core{box-shadow:0 0 40px 8px rgba(59,130,246,.55);}
+.ai-avatar-wrap[data-state="speaking"] .mini-wave{display:flex;}
+
+.ai-avatar-wrap[data-state="listening"] .ai-ring{border-color:rgba(6,182,212,.4);animation:ringPulse 2.4s ease-in-out infinite;}
+.ai-avatar-wrap[data-state="listening"] .ai-core{background:radial-gradient(circle at 32% 28%,#a6f2ff,var(--cyan) 45%,var(--blue) 90%);box-shadow:0 0 30px 6px rgba(6,182,212,.4);}
+.ai-avatar-wrap[data-state="listening"] .mini-wave{display:none;}
+
+.ai-avatar-wrap[data-state="recording"] .ai-ring{border-color:rgba(168,85,247,.45);animation:ringPulse 1s ease-in-out infinite;}
+.ai-avatar-wrap[data-state="recording"] .ai-core{background:radial-gradient(circle at 32% 28%,#e9c9ff,var(--purple) 45%,var(--blue) 90%);box-shadow:0 0 34px 8px rgba(168,85,247,.5);}
+.ai-avatar-wrap[data-state="recording"] .mini-wave{display:flex;}
+
+.ai-avatar-wrap[data-state="processing"] .ai-core,
+.ai-avatar-wrap[data-state="generating"] .ai-core,
+.ai-avatar-wrap[data-state="loading"] .ai-core{
+  background:conic-gradient(from 0deg, var(--blue), var(--purple), var(--cyan), var(--blue));
+  animation:spinCore 1.4s linear infinite;
+}
+.ai-avatar-wrap[data-state="processing"] .mini-wave,
+.ai-avatar-wrap[data-state="generating"] .mini-wave,
+.ai-avatar-wrap[data-state="loading"] .mini-wave{display:none;}
+@keyframes spinCore{to{transform:rotate(360deg);}}
+@keyframes ringPulse{0%,100%{transform:scale(.95);opacity:.9;}50%{transform:scale(1.08);opacity:.35;}}
+
+.ai-info{flex:1;min-width:0;}
+.ai-info .name{font-family:var(--font-display);font-weight:600;font-size:1.05rem;margin-bottom:.3rem;}
+.ai-info .state-text{font-size:.86rem;color:var(--text-dim);display:flex;align-items:center;gap:.5rem;}
+.ai-info .state-text .dot{background:var(--blue);box-shadow:0 0 6px var(--blue);}
+.begin-btn{
+  margin-left:auto;flex:0 0 auto;
+  display:flex;align-items:center;gap:.5rem;
+  padding:.8rem 1.4rem;border-radius:12px;
+  font-weight:600;font-size:.88rem;font-family:var(--font-display);
+  background:var(--grad-primary);color:#04101f;
+  box-shadow:0 14px 34px -10px rgba(59,130,246,.6);
+  transition:transform .3s var(--ease);
+}
+.begin-btn:hover{transform:translateY(-2px);}
+
+/* question card */
+.question-card .card-label span:last-child{font-family:var(--font-mono);font-size:.7rem;color:var(--text-faint);}
+.tag-row{display:flex;gap:.5rem;margin-bottom:1rem;}
+.tag{
+  font-family:var(--font-mono);font-size:.68rem;padding:.28rem .65rem;border-radius:999px;
+  border:1px solid var(--border-strong);color:var(--text-dim);letter-spacing:.02em;
+}
+.tag.topic{border-color:rgba(6,182,212,.35);color:var(--cyan);}
+.tag.difficulty{border-color:rgba(168,85,247,.35);color:#d9b3fb;}
+#question-text{
+  font-family:var(--font-display);font-size:1.35rem;font-weight:600;line-height:1.42;
+  letter-spacing:-0.01em;min-height:3.2rem;
+}
+#question-text.skel-block{display:flex;flex-direction:column;gap:.6rem;}
+#question-text.skel-block .skel{height:20px;width:100%;}
+#question-text.skel-block .skel:last-child{width:60%;}
+
+/* recording section */
+.record-section{display:flex;align-items:center;gap:1.4rem;flex-wrap:wrap;}
+.answer-textarea{
+  width:100%;min-height:140px;resize:vertical;border-radius:12px;
+  background:var(--surface-3);border:1px solid var(--border-strong);
+  color:var(--text-1);font-family:inherit;font-size:.92rem;line-height:1.5;
+  padding:.85rem 1rem;transition:border-color .3s ease;
+}
+.answer-textarea:focus{outline:none;border-color:rgba(168,85,247,.6);}
+.answer-textarea:disabled{opacity:.5;}
+.answer-meta{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:.72rem;color:var(--text-faint);margin-top:.5rem;}
+
+.record-controls{display:flex;flex-direction:column;gap:.7rem;flex:1;min-width:220px;}
+.btn-row{display:flex;gap:.6rem;flex-wrap:wrap;}
+.btn{
+  display:flex;align-items:center;gap:.5rem;
+  padding:.68rem 1.1rem;border-radius:11px;
+  font-size:.85rem;font-weight:600;
+  border:1px solid var(--border-strong);color:var(--text);
+  background:rgba(255,255,255,0.02);
+  transition:border-color .25s ease, background .25s ease, transform .2s ease;
+}
+.btn:hover:not(:disabled){transform:translateY(-1px);border-color:rgba(148,163,184,.5);}
+.btn.primary{background:var(--grad-primary);color:#04101f;border-color:transparent;}
+.btn.primary:hover:not(:disabled){box-shadow:0 12px 30px -10px rgba(59,130,246,.6);}
+.btn.danger{border-color:rgba(168,85,247,.4);color:#e9c9ff;}
+.btn.success{background:linear-gradient(135deg,var(--cyan),var(--blue));color:#04101f;border-color:transparent;}
+.rec-timer{font-family:var(--font-mono);font-size:.82rem;color:var(--text-dim);display:flex;align-items:center;gap:.4rem;}
+.rec-timer .dot{background:var(--purple);box-shadow:0 0 6px var(--purple);display:none;}
+.rec-timer.active .dot{display:inline-block;animation:pulseDot 1.2s ease-in-out infinite;}
+
+/* waveform */
+.waveform-box{
+  border-radius:14px;border:1px solid var(--border);
+  background:rgba(2,6,23,0.5);
+  padding:.9rem 1rem;
+  display:flex;align-items:center;
+}
+
+/* transcript */
+.transcript-card{display:flex;flex-direction:column;flex:1;min-height:260px;}
+#conversation-history{
+  flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:.8rem;
+  padding-right:.4rem;max-height:320px;
+}
+.msg{display:flex;gap:.7rem;max-width:90%;}
+.msg .avatar{
+  width:28px;height:28px;border-radius:8px;flex:0 0 auto;
+  display:flex;align-items:center;justify-content:center;font-size:.7rem;
+}
+.msg.ai .avatar{background:linear-gradient(150deg,rgba(59,130,246,.3),rgba(6,182,212,.2));color:var(--cyan);}
+.msg.candidate{align-self:flex-end;flex-direction:row-reverse;}
+.msg.candidate .avatar{background:linear-gradient(150deg,rgba(168,85,247,.3),rgba(59,130,246,.2));color:#d9b3fb;}
+.msg .bubble{
+  padding:.7rem .9rem;border-radius:12px;font-size:.86rem;line-height:1.5;
+  background:rgba(255,255,255,0.03);border:1px solid var(--border);
+}
+.msg.candidate .bubble{background:rgba(168,85,247,.06);border-color:rgba(168,85,247,.18);}
+.msg .meta{font-family:var(--font-mono);font-size:.65rem;color:var(--text-faint);margin-top:.3rem;display:block;}
+.transcript-empty{color:var(--text-faint);font-size:.85rem;text-align:center;padding:2rem 0;}
+.live-caption{
+  font-family:var(--font-mono);font-size:.78rem;color:var(--cyan);
+  padding:.5rem 0 0;min-height:1.2rem;opacity:.85;
+}
+
+/* ============================= RIGHT SIDEBAR ============================= */
+.metric-row{display:flex;justify-content:space-between;align-items:center;padding:.65rem 0;border-top:1px solid var(--border);}
+.metric-row:first-of-type{border-top:none;}
+.metric-row .k{font-size:.8rem;color:var(--text-dim);}
+.metric-row .v{font-family:var(--font-mono);font-size:.9rem;color:var(--text);}
+.meter{width:80px;height:6px;border-radius:99px;background:rgba(148,163,184,.12);overflow:hidden;}
+.meter-fill{height:100%;width:0%;background:var(--grad-accent);transition:width .5s var(--ease);}
+.score-pending{
+  font-family:var(--font-mono);font-size:.72rem;color:var(--text-faint);
+  padding:.25rem .55rem;border-radius:999px;border:1px dashed var(--border-strong);
+}
+
+.notes-list{display:flex;flex-direction:column;gap:.7rem;max-height:340px;overflow-y:auto;padding-right:.3rem;}
+.note-item{
+  padding:.7rem .8rem;border-radius:11px;
+  background:rgba(255,255,255,0.02);border:1px solid var(--border);
+  font-size:.8rem;color:var(--text-dim);line-height:1.5;
+}
+.note-item .tstamp{display:block;font-family:var(--font-mono);font-size:.65rem;color:var(--text-faint);margin-bottom:.3rem;}
+.notes-empty{color:var(--text-faint);font-size:.82rem;padding:.6rem 0;}
+
+/* ============================= RESPONSIVE ============================= */
+.mobile-toggle{display:none;}
+@media (max-width:1180px){
+  .workspace{grid-template-columns:250px 1fr 260px;}
+}
+@media (max-width:980px){
+  body{overflow:auto;}
+  .app-shell{height:auto;min-height:100vh;}
+  .workspace{
+    grid-template-columns:1fr;grid-template-rows:auto auto auto;
+    background:transparent;gap:1px;
+  }
+  .pane{border-bottom:1px solid var(--border);overflow:visible;}
+  .pane.left-pane{order:2;}
+  .pane.center-pane{order:1;}
+  .pane.right-pane{order:3;}
+  .nav-right .session-meta{display:none;}
+}
+@media (max-width:640px){
+  .topnav{padding:0 1rem;}
+  .brand span.brand-text{display:none;}
+  .ai-card{flex-wrap:wrap;}
+  .begin-btn{margin-left:0;width:100%;justify-content:center;}
+  .record-section{flex-direction:column;align-items:flex-start;}
+  .btn-row{width:100%;}
+  .btn{flex:1;justify-content:center;}
+}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.001ms !important;transition-duration:.001ms !important;}
+}
+</style>
+</head>
+<body>
+<div class="ambient"></div>
+
+<div class="app-shell">
+
+  <!-- ============================= TOP NAV ============================= -->
+  <nav class="topnav">
+    <div class="nav-left">
+      <div class="brand"><span class="brand-orb"></span><span class="brand-text">AI Interview Agent</span></div>
+      <div class="nav-divider"></div>
+      <div class="status-pill" id="ai-status-pill" data-state="idle">
+        <span class="dot"></span>
+        <span id="ai-status">Idle</span>
+      </div>
+    </div>
+
+    <div class="nav-right">
+      <div class="candidate-status" id="candidate-status">
+        <span class="dot"></span>
+        <span id="candidate-status-text">Connecting…</span>
+      </div>
+      <div class="timer-block">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+        <span id="timer">00:00</span>
+      </div>
+      <div class="session-meta">
+        <span class="k">Session</span>
+        <span class="v" id="session-id">—</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ============================= WORKSPACE ============================= -->
+  <div class="workspace">
+
+    <!-- ================= LEFT SIDEBAR ================= -->
+    <aside class="pane left-pane scroll">
+      <div class="pane-inner">
+
+        <div class="card glass">
+          <div class="card-label"><span>Candidate</span><span class="dot"></span></div>
+          <div class="candidate-avatar-row">
+            <div class="candidate-avatar">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 21a8 8 0 1 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div id="candidate-name" style="font-family:var(--font-display);font-weight:600;font-size:.98rem;"><span class="skel" style="width:120px;"></span></div>
+              <div id="candidate-role" style="font-size:.78rem;color:var(--text-dim);margin-top:.25rem;"><span class="skel" style="width:90px;height:11px;"></span></div>
+            </div>
+          </div>
+          <div class="field-row"><span class="k">Experience</span><span class="v" id="candidate-experience"><span class="skel"></span></span></div>
+          <div class="field-row"><span class="k">Cohort Progress</span><span class="v" id="cohort-progress"><span class="skel"></span></span></div>
+          <div class="field-row"><span class="k">Difficulty Level</span><span class="diff-badge" id="difficulty-level" data-level="">—</span></div>
+        </div>
+
+        <div class="card glass">
+          <div class="card-label"><span>Interview Progress</span></div>
+          <div class="progress-track"><div class="progress-fill" id="progress-bar"></div></div>
+          <div class="progress-stats">
+            <span>Completed: <b id="questions-completed">0</b>/<span id="questions-total">8</span></span>
+            <span>Remaining: <b id="remaining-questions">8</b></span>
+          </div>
+          <div class="card-label" style="margin-bottom:.6rem;"><span>Topics Covered</span></div>
+          <div class="topic-chips" id="topics-covered-list">
+            <span class="topic-chip empty">No topics recorded yet</span>
+          </div>
+        </div>
+
+        <div class="card glass">
+          <div class="card-label"><span>Curriculum Coverage</span></div>
+          <div id="coverage-container" class="topic-chips"></div>
+        </div>
+
+        <div class="card glass">
+          <div class="card-label"><span>Curriculum Days</span></div>
+          <div id="curriculum-days" class="topic-chips"></div>
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- ================= CENTER PANEL ================= -->
+    <main class="pane center-pane scroll">
+      <div class="pane-inner">
+
+        <!-- AI Interviewer card -->
+        <div class="card glass ai-card">
+          <div class="ai-avatar-wrap" id="ai-avatar" data-state="idle">
+            <div class="ai-ring r1"></div>
+            <div class="ai-ring r2"></div>
+            <div class="ai-core">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1M12 18v4M9 22h6"/></svg>
+              <div class="mini-wave"><span></span><span></span><span></span><span></span><span></span></div>
+            </div>
+          </div>
+          <div class="ai-info">
+            <div class="name">Interview Agent</div>
+            <div class="state-text"><span class="dot"></span><span id="ai-state-text">Ready to begin the session</span></div>
+          </div>
+          <button class="begin-btn" id="begin-interview-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M8 5v14l11-7z"/></svg>
+            Begin Interview
+          </button>
+        </div>
+
+        <!-- Question card -->
+        <div class="card glass question-card">
+          <div class="card-label"><span>Current Question</span><span id="question-number">—</span></div>
+          <div id="question-counter" style="font-family:var(--font-mono);font-size:.72rem;color:var(--text-faint);margin-bottom:.6rem;">Question — / —</div>
+          <div class="tag-row">
+            <span class="tag topic" id="topic-tag">Awaiting session</span>
+            <span class="tag difficulty" id="difficulty-tag">—</span>
+            <span class="tag followup-badge" id="followup-badge" style="display:none;border-color:rgba(168,85,247,.45);color:#d9b3fb;">FOLLOW-UP</span>
+          </div>
+          <div id="question-text" class="skel-block">
+            <span class="skel"></span>
+            <span class="skel"></span>
+          </div>
+        </div>
+
+        <!-- Written response section -->
+        <div class="card glass">
+          <div class="card-label"><span>Written Response</span></div>
+          <textarea class="answer-textarea" id="answer-input" placeholder="Type your answer here..." disabled></textarea>
+          <div class="answer-meta">
+            <span id="answer-char-count">0 characters</span>
+          </div>
+          <div class="btn-row" style="margin-top:.85rem;">
+            <button class="btn success" id="submit-answer-btn" disabled>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              Submit Answer
+            </button>
+          </div>
+        </div>
+
+        <!-- Transcript -->
+        <div class="card glass transcript-card">
+          <div class="card-label"><span>Live Transcript</span><span class="dot"></span></div>
+          <div id="conversation-history" class="scroll">
+            <div class="transcript-empty" id="transcript-empty">Conversation will appear here once the interview begins.</div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+    <!-- ================= RIGHT SIDEBAR ================= -->
+    <aside class="pane right-pane scroll">
+      <div class="pane-inner">
+
+        <div class="card glass">
+          <div class="card-label"><span>Interview Metrics</span></div>
+          <div class="metric-row"><span class="k">Total Answering Time</span><span class="v" id="speaking-time">00:00</span></div>
+          <div class="metric-row"><span class="k">Response Count</span><span class="v" id="response-count">0</span></div>
+          <div class="metric-row"><span class="k">Confidence</span><div class="meter"><div class="meter-fill" id="confidence-indicator"></div></div></div>
+          <div class="metric-row"><span class="k">Communication Score</span><span class="score-pending" id="communication-score">Pending evaluation</span></div>
+        </div>
+
+        <div class="card glass" style="flex:1;">
+          <div class="card-label"><span>AI Notes</span></div>
+          <div class="notes-list" id="ai-notes-list">
+            <div class="notes-empty">Notes will appear as the interview progresses.</div>
+          </div>
+        </div>
+
+      </div>
+    </aside>
+
+  </div>
+</div>
+
+<script>
+/* =========================================================================
+   AI INTERVIEW AGENT — LIVE INTERVIEW CONSOLE
+   Frontend prototype. No candidate data is hardcoded — all candidate fields
+   render as loading skeletons until a backend calls hydrateCandidate().
+   Question content below is DEMO content for interactive state simulation
+   only; in production this is streamed from the LangGraph agent.
+   ========================================================================= */
+
+// ---------- session + candidate bootstrap ----------
+// sessionId and candidateId are produced by index.html and handed off via
+// localStorage. If someone lands here directly (no upstream selection), we
+// fail safe by generating a session id and leaving candidate context empty —
+// the backend is still the source of truth for everything candidate-related.
+let SESSION_ID = localStorage.getItem('sessionId');
+if (!SESSION_ID) {
+  SESSION_ID = crypto.randomUUID();
+  localStorage.setItem('sessionId', SESSION_ID);
+}
+document.getElementById('session-id').textContent = SESSION_ID;
+
+const CANDIDATE_ID = localStorage.getItem('candidateId') || null;
+let CANDIDATE_PROFILE = null;
+try { CANDIDATE_PROFILE = JSON.parse(localStorage.getItem('candidateProfile') || 'null'); } catch (e) { CANDIDATE_PROFILE = null; }
+
+const CURRICULUM_TOPICS = ['Embeddings', 'Vector Databases', 'Prompt Engineering', 'LangGraph', 'MCP', 'Deployment'];
+const MIN_CURRICULUM_DAYS = 4;
+
+function hydrateCandidateCard() {
+  if (!CANDIDATE_PROFILE) return;
+  if (CANDIDATE_PROFILE.member) {
+    const member = CANDIDATE_PROFILE.member;
+    const missions = CANDIDATE_PROFILE.missions || [];
+    CANDIDATE_PROFILE.name = member.name;
+    CANDIDATE_PROFILE.role = member.jobRole;
+    CANDIDATE_PROFILE.experience = `${member.yearsExperience} yrs`;
+    CANDIDATE_PROFILE.cohortProgress = `${missions.filter((mission) => mission.passed).length}/${missions.length} missions complete`;
+  }
+  document.getElementById('candidate-name').textContent = CANDIDATE_PROFILE.name || CANDIDATE_ID || 'Candidate';
+  document.getElementById('candidate-role').textContent = CANDIDATE_PROFILE.role || '—';
+  document.getElementById('candidate-experience').textContent = CANDIDATE_PROFILE.experience || '—';
+  document.getElementById('cohort-progress').textContent = CANDIDATE_PROFILE.cohortProgress || '—';
+  const cs = document.getElementById('candidate-status');
+  cs.classList.add('online');
+  document.getElementById('candidate-status-text').textContent = 'Live';
+}
+hydrateCandidateCard();
+
+// ---------- curriculum coverage tracker ----------
+function renderCoverageTracker(coveredList) {
+  const covered = new Set(coveredList || []);
+  els.coverageContainer.innerHTML = CURRICULUM_TOPICS.map((t) =>
+    `<span class="topic-chip ${covered.has(t) ? 'covered' : 'pending'}">${t}</span>`
+  ).join('');
+}
+
+// ---------- curriculum days tracker ----------
+function renderCurriculumDays(coveredDays) {
+  if ((!coveredDays || !coveredDays.length) && CANDIDATE_PROFILE && CANDIDATE_PROFILE.missions) {
+    coveredDays = CANDIDATE_PROFILE.missions.map((mission) => mission.day);
+  }
+  const days = coveredDays && coveredDays.length ? coveredDays : (CANDIDATE_PROFILE ? CANDIDATE_PROFILE.curriculumDays : []);
+  if (!days || !days.length) {
+    els.curriculumDays.innerHTML = '<span class="topic-chip empty">No curriculum days recorded yet</span>';
+    return;
+  }
+  els.curriculumDays.innerHTML = days.map((d) => `<span class="topic-chip covered">Day ${d}</span>`).join('');
+  if (days.length < MIN_CURRICULUM_DAYS) {
+    addNote(`Warning: only ${days.length} curriculum day(s) covered — minimum required is ${MIN_CURRICULUM_DAYS}.`);
+  }
+}
+
+// ---------- conversation history (sent back to the agent each turn) ----------
+let conversationHistory = [];
+
+let qIndex = -1;
+let TOTAL_QUESTIONS = 8;
+let questionsCompleted = 0;
+let followUpsGenerated = 0;
+let responseCount = 0;
+let totalSpeakingSeconds = 0;
+let lastAnswerAtSeconds = 0;
+let coveredTopics = new Set();
+let currentQuestion = null;
+
+document.getElementById('questions-total').textContent = TOTAL_QUESTIONS;
+document.getElementById('remaining-questions').textContent = TOTAL_QUESTIONS;
+
+// ---------- element refs ----------
+const els = {
+  statusPill: document.getElementById('ai-status-pill'),
+  aiStatus: document.getElementById('ai-status'),
+  aiAvatar: document.getElementById('ai-avatar'),
+  aiStateText: document.getElementById('ai-state-text'),
+  beginBtn: document.getElementById('begin-interview-btn'),
+  questionText: document.getElementById('question-text'),
+  questionNumber: document.getElementById('question-number'),
+  topicTag: document.getElementById('topic-tag'),
+  difficultyTag: document.getElementById('difficulty-tag'),
+  answerInput: document.getElementById('answer-input'),
+  answerCharCount: document.getElementById('answer-char-count'),
+  submitBtn: document.getElementById('submit-answer-btn'),
+  transcript: document.getElementById('conversation-history'),
+  questionCounter: document.getElementById('question-counter'),
+  followupBadge: document.getElementById('followup-badge'),
+  coverageContainer: document.getElementById('coverage-container'),
+  curriculumDays: document.getElementById('curriculum-days'),
+  transcriptEmpty: document.getElementById('transcript-empty'),
+  progressBar: document.getElementById('progress-bar'),
+  questionsCompleted: document.getElementById('questions-completed'),
+  remainingQuestions: document.getElementById('remaining-questions'),
+  topicsCoveredList: document.getElementById('topics-covered-list'),
+  difficultyLevel: document.getElementById('difficulty-level'),
+  speakingTime: document.getElementById('speaking-time'),
+  responseCount: document.getElementById('response-count'),
+  confidenceIndicator: document.getElementById('confidence-indicator'),
+  communicationScore: document.getElementById('communication-score'),
+  notesList: document.getElementById('ai-notes-list'),
+  timer: document.getElementById('timer'),
+};
+
+// These functions use `els`, so they must run after the element references
+// above have been created.
+renderCoverageTracker([]);
+renderCurriculumDays([]);
+
+// ---------- session timer ----------
+let sessionSeconds = 0, sessionInterval = null;
+function startSessionTimer() {
+  if (sessionInterval) return;
+  sessionInterval = setInterval(() => {
+    sessionSeconds++;
+    els.timer.textContent = fmtTime(sessionSeconds);
+  }, 1000);
+}
+function fmtTime(s) {
+  const m = Math.floor(s / 60).toString().padStart(2, '0');
+  const sec = (s % 60).toString().padStart(2, '0');
+  return `${m}:${sec}`;
+}
+
+// ---------- AI state machine ----------
+const STATE_LABELS = {
+  idle: 'Idle',
+  speaking: 'AI Speaking',
+  listening: 'Listening',
+  recording: 'Recording',
+  processing: 'Processing Answer',
+  generating: 'Generating Follow-Up',
+  loading: 'Loading Next Question',
+};
+const STATE_SUBTEXT = {
+  idle: 'Ready to begin the session',
+  speaking: 'Reading the current question aloud',
+  listening: 'Waiting for the candidate to respond',
+  recording: 'Capturing candidate response',
+  processing: 'Analyzing the submitted answer',
+  generating: 'Drafting an adaptive follow-up',
+  loading: 'Preparing the next question',
+};
+function setAIState(state) {
+  els.statusPill.dataset.state = state;
+  els.aiStatus.textContent = STATE_LABELS[state];
+  els.aiAvatar.dataset.state = state;
+  els.aiStateText.textContent = STATE_SUBTEXT[state];
+}
+setAIState('idle');
+
+// ---------- notes + transcript helpers ----------
+function addNote(text) {
+  const empty = els.notesList.querySelector('.notes-empty');
+  if (empty) empty.remove();
+  const item = document.createElement('div');
+  item.className = 'note-item';
+  item.innerHTML = `<span class="tstamp">${fmtTime(sessionSeconds)}</span>${text}`;
+  els.notesList.prepend(item);
+}
+function addTranscriptMessage(role, text, meta) {
+  if (els.transcriptEmpty) { els.transcriptEmpty.remove(); }
+  const msg = document.createElement('div');
+  msg.className = `msg ${role}`;
+  msg.innerHTML = `
+    <div class="avatar">${role === 'ai' ? '◆' : '●'}</div>
+    <div class="bubble">${text}<span class="meta">${meta || ''}</span></div>
+  `;
+  els.transcript.appendChild(msg);
+  els.transcript.scrollTop = els.transcript.scrollHeight;
+}
+
+// ---------- candidate progress UI ----------
+function updateProgressUI() {
+  const pct = Math.round((questionsCompleted / TOTAL_QUESTIONS) * 100);
+  els.progressBar.style.width = pct + '%';
+  els.questionsCompleted.textContent = questionsCompleted;
+  els.remainingQuestions.textContent = Math.max(TOTAL_QUESTIONS - questionsCompleted, 0);
+
+  if (coveredTopics.size) {
+    els.topicsCoveredList.innerHTML = [...coveredTopics].map(t => `<span class="topic-chip">${t}</span>`).join('');
+  }
+  renderCoverageTracker([...coveredTopics]);
+  // difficulty auto-escalates every 3 answered questions (product behavior, not candidate data)
+  let level = 'beginner', label = 'Beginner';
+  if (questionsCompleted >= 5) { level = 'advanced'; label = 'Advanced'; }
+  else if (questionsCompleted >= 2) { level = 'intermediate'; label = 'Intermediate'; }
+  els.difficultyLevel.dataset.level = level;
+  els.difficultyLevel.textContent = label;
+}
+
+function updateMetricsUI() {
+  const now = sessionSeconds;
+  const elapsedSinceLastAnswer = now - lastAnswerAtSeconds;
+  lastAnswerAtSeconds = now;
+  responseCount++;
+  totalSpeakingSeconds += elapsedSinceLastAnswer;
+  els.responseCount.textContent = responseCount;
+  els.speakingTime.textContent = fmtTime(totalSpeakingSeconds);
+  const confidencePct = Math.min(30 + responseCount * 9, 92);
+  els.confidenceIndicator.style.width = confidencePct + '%';
+  if (responseCount >= 3) {
+    els.communicationScore.textContent = 'Trending strong';
+    els.communicationScore.style.color = 'var(--cyan)';
+    els.communicationScore.style.borderStyle = 'solid';
+    els.communicationScore.style.borderColor = 'rgba(6,182,212,.4)';
+  }
+}
+
+// =========================================================================
+// SINGLE-ENDPOINT API INTEGRATION
+// Only POST /api/interview is called — no /start, /question, /answer, or
+// /feedback routes. The first call in a session sends { sessionId, candidate };
+// every subsequent call sends { sessionId, message }. A { done: true }
+// response carries final feedback and triggers the redirect to report.html.
+// =========================================================================
+async function callInterviewApi(payload) {
+  const res = await fetch('/api/interview', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`Interview API error: ${res.status}`);
+  return res.json();
+}
+
+function applyQuestionPayload(q) {
+  currentQuestion = q;
+  qIndex++;
+  if (typeof q.totalQuestions === 'number') {
+    TOTAL_QUESTIONS = q.totalQuestions;
+    els.questionsTotal && (els.questionsTotal.textContent = TOTAL_QUESTIONS);
+    document.getElementById('questions-total').textContent = TOTAL_QUESTIONS;
+  }
+
+  els.questionText.classList.remove('skel-block');
+  els.questionText.innerHTML = q.text;
+  els.questionNumber.textContent = `Question ${qIndex + 1} of ${TOTAL_QUESTIONS}`;
+  els.questionCounter.textContent = `Question ${qIndex + 1} / ${TOTAL_QUESTIONS}`;
+  els.topicTag.textContent = q.topic || '—';
+  els.difficultyTag.textContent = q.difficulty || '—';
+
+  if (q.is_followup === true) {
+    els.followupBadge.style.display = 'inline-flex';
+    followUpsGenerated++;
+  } else {
+    els.followupBadge.style.display = 'none';
+  }
+
+  if (q.topic) coveredTopics.add(q.topic);
+  if (Array.isArray(q.covered_days)) renderCurriculumDays(q.covered_days);
+
+  conversationHistory.push({ role: 'ai', message: q.text });
+  addTranscriptMessage('ai', q.text, `AI · ${fmtTime(sessionSeconds)}`);
+}
+
+function presentCurrentQuestion() {
+  setAIState('listening');
+  els.answerInput.disabled = false;
+  els.answerInput.value = '';
+  els.answerCharCount.textContent = '0 characters';
+  els.submitBtn.disabled = true;
+  els.answerInput.focus();
+}
+
+function handleInterviewComplete(data) {
+  setAIState('idle');
+  els.aiStateText.textContent = 'Interview complete — thank you.';
+  addNote('Interview session complete. All questions answered.');
+  els.beginBtn.style.display = 'none';
+  els.questionCounter.textContent = `Question ${TOTAL_QUESTIONS} / ${TOTAL_QUESTIONS}`;
+
+  const feedback = data.feedback || {};
+  const feedbackPayload = {
+    ...feedback,
+    sessionId: SESSION_ID,
+    candidateId: CANDIDATE_ID,
+    candidateName: CANDIDATE_PROFILE ? CANDIDATE_PROFILE.name : undefined,
+    interviewDuration: fmtTime(sessionSeconds),
+    questionsAnswered: `${questionsCompleted} / ${TOTAL_QUESTIONS}`,
+    analytics: {
+      questionsAsked: qIndex + 1,
+      followUpsGenerated,
+      curriculumDaysCovered: (data.covered_days || (CANDIDATE_PROFILE && CANDIDATE_PROFILE.curriculumDays) || []).length,
+      averageResponseTime: responseCount ? fmtTime(Math.round(totalSpeakingSeconds / responseCount)) : '00:00',
+    },
+    coverage: data.coverage,
+  };
+  localStorage.setItem('feedback', JSON.stringify(feedbackPayload));
+  window.location.href = 'report.html';
+}
+
+async function advanceToNextQuestion(candidateMessage) {
+  setAIState('processing');
+  try {
+    const payload = (qIndex === -1)
+      ? { sessionId: SESSION_ID, candidate: CANDIDATE_PROFILE || { id: CANDIDATE_ID } }
+      : { sessionId: SESSION_ID, message: candidateMessage || '' };
+
+    const data = await callInterviewApi(payload);
+
+    if (data.done) {
+      handleInterviewComplete(data);
+      return;
+    }
+
+    if (data.is_followup) setAIState('generating');
+    els.questionText.classList.add('skel-block');
+    els.questionText.innerHTML = '<span class="skel"></span><span class="skel"></span>';
+
+    applyQuestionPayload(data);
+    presentCurrentQuestion();
+  } catch (err) {
+    setAIState('idle');
+    els.aiStateText.textContent = 'Connection issue — unable to reach the interview agent.';
+    addNote('Could not reach POST /api/interview. Please check your connection and try again.');
+  }
+}
+
+els.beginBtn.addEventListener('click', () => {
+  startSessionTimer();
+  els.beginBtn.disabled = true;
+  els.beginBtn.textContent = 'Interview In Progress';
+  addNote('Session started. Candidate connected and ready.');
+  advanceToNextQuestion();
+});
+
+// ---------- typed answer submission ----------
+els.answerInput.addEventListener('input', () => {
+  const len = els.answerInput.value.trim().length;
+  els.answerCharCount.textContent = `${len} character${len === 1 ? '' : 's'}`;
+  els.submitBtn.disabled = len === 0;
+});
+
+function submitAnswer() {
+  const messageText = els.answerInput.value.trim();
+  if (!messageText) return;
+
+  addTranscriptMessage('candidate', messageText, `Candidate · ${fmtTime(sessionSeconds)}`);
+  conversationHistory.push({ role: 'candidate', message: messageText });
+
+  updateMetricsUI();
+  els.answerInput.value = '';
+  els.answerInput.disabled = true;
+  els.answerCharCount.textContent = '0 characters';
+  els.submitBtn.disabled = true;
+
+  questionsCompleted++;
+  updateProgressUI();
+
+  advanceToNextQuestion(messageText);
+}
+
+els.submitBtn.addEventListener('click', submitAnswer);
+
+updateProgressUI();
+</script>
+</body>
+</html>

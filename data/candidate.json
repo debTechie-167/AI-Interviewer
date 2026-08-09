@@ -1,0 +1,15 @@
+{
+  "member": {
+    "id": "CAND-001",
+    "name": "Sarah Johnson",
+    "jobRole": "Senior Data Engineer",
+    "yearsExperience": 9,
+    "education": "MS Computer Science",
+    "status": "COMPLETED"
+  },
+  "missions": [
+    { "day": 7, "title": "Embeddings Explained", "passed": true, "attempts": 1 },
+    { "day": 8, "title": "Vector Databases Overview", "passed": true, "attempts": 1 }
+  ],
+  "signals": { "commitDays": 28, "missionsCompleted": 30, "missionsFirstTry": 20 }
+}

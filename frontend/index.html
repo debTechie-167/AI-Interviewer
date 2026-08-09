@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Interview Agent — Voice-Native Technical Interviews</title>
+<meta name="description" content="AI Interview Agent conducts personalized, curriculum-aware technical interviews by voice using RAG, vector search, and multi-agent reasoning.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+
+/* ============================= TOKENS ============================= */
+:root{
+  --bg: #020617;
+  --surface: #0F172A;
+  --surface-2: #111d34;
+  --blue: #3B82F6;
+  --cyan: #06B6D4;
+  --purple: #A855F7;
+  --text: #F8FAFC;
+  --text-dim: #94A3B8;
+  --text-faint: #5b6b85;
+  --border: rgba(148,163,184,0.14);
+  --border-strong: rgba(148,163,184,0.28);
+  --grad-primary: linear-gradient(135deg, var(--blue), var(--cyan));
+  --grad-accent: linear-gradient(135deg, var(--purple), var(--blue));
+  --font-display: "Space Grotesk", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  --ease: cubic-bezier(.19,1,.22,1);
+}
+
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--font-body);
+  line-height:1.6;
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:rgba(59,130,246,0.35);color:#fff;}
+
+a{color:inherit;text-decoration:none;}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;}
+ul{list-style:none;}
+img,svg{display:block;}
+
+.eyebrow{
+  display:inline-flex;align-items:center;gap:.5rem;
+  font-family:var(--font-mono);
+  font-size:.72rem;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--cyan);
+  padding:.4rem .8rem;
+  border:1px solid rgba(6,182,212,0.3);
+  border-radius:999px;
+  background:rgba(6,182,212,0.06);
+}
+.eyebrow::before{
+  content:"";
+  width:6px;height:6px;border-radius:50%;
+  background:var(--cyan);
+  box-shadow:0 0 8px var(--cyan);
+  animation:pulseDot 1.8s ease-in-out infinite;
+}
+@keyframes pulseDot{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.4;transform:scale(.7);}}
+
+.section-tag{
+  font-family:var(--font-mono);
+  font-size:.72rem;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:var(--text-faint);
+  margin-bottom:.9rem;
+  display:block;
+}
+
+.section-head{max-width:640px;margin:0 auto 3.5rem;text-align:center;}
+.section-head h2{
+  font-family:var(--font-display);
+  font-size:clamp(1.9rem,3.4vw,2.7rem);
+  font-weight:600;
+  letter-spacing:-0.02em;
+  margin-bottom:1rem;
+}
+.section-head p{color:var(--text-dim);font-size:1.02rem;}
+
+.container{max-width:1180px;margin:0 auto;padding:0 2rem;}
+section{position:relative;padding:7rem 0;}
+
+/* subtle grid backdrop reused across sections */
+.grid-overlay{
+  position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(148,163,184,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148,163,184,0.05) 1px, transparent 1px);
+  background-size:46px 46px;
+  mask-image:radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
+  pointer-events:none;
+}
+
+/* reveal-on-scroll */
+.reveal{opacity:0;transform:translateY(26px);transition:opacity .8s var(--ease), transform .8s var(--ease);}
+.reveal.in{opacity:1;transform:translateY(0);}
+
+/* ============================= NAVBAR ============================= */
+.navbar{
+  position:fixed;top:0;left:0;right:0;z-index:1000;
+  display:flex;justify-content:center;
+  padding:1.1rem 1.5rem 0;
+  pointer-events:none;
+}
+.nav-inner{
+  pointer-events:all;
+  width:100%;max-width:1080px;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:.7rem .8rem .7rem 1.2rem;
+  border-radius:999px;
+  border:1px solid var(--border);
+  background:rgba(15,23,42,0.55);
+  backdrop-filter:blur(18px) saturate(160%);
+  -webkit-backdrop-filter:blur(18px) saturate(160%);
+  transition:border-color .4s ease, background .4s ease, box-shadow .4s ease;
+}
+.navbar.scrolled .nav-inner{
+  border-color:var(--border-strong);
+  background:rgba(10,16,32,0.78);
+  box-shadow:0 10px 40px -12px rgba(0,0,0,0.6);
+}
+.logo{
+  display:flex;align-items:center;gap:.6rem;
+  font-family:var(--font-display);
+  font-weight:600;
+  font-size:1rem;
+  letter-spacing:-0.01em;
+}
+.logo-orb{
+  width:20px;height:20px;border-radius:50%;
+  background:conic-gradient(from 180deg, var(--blue), var(--cyan), var(--purple), var(--blue));
+  position:relative;
+  box-shadow:0 0 14px rgba(59,130,246,0.6);
+  animation:spinOrb 6s linear infinite;
+}
+.logo-orb::after{
+  content:"";position:absolute;inset:4px;border-radius:50%;background:var(--bg);
+}
+@keyframes spinOrb{to{transform:rotate(360deg);}}
+
+.nav-links{display:flex;align-items:center;gap:2rem;}
+.nav-links a{
+  font-size:.88rem;color:var(--text-dim);
+  transition:color .25s ease;
+  position:relative;
+}
+.nav-links a:hover{color:var(--text);}
+
+.nav-cta{
+  font-size:.85rem;font-weight:600;
+  padding:.6rem 1.3rem;
+  border-radius:999px;
+  background:var(--text);
+  color:var(--bg);
+  transition:transform .3s var(--ease), box-shadow .3s var(--ease);
+}
+.nav-cta:hover{transform:translateY(-1px);box-shadow:0 8px 24px -6px rgba(59,130,246,0.5);}
+
+.nav-toggle{display:none;width:22px;height:16px;position:relative;pointer-events:all;}
+.nav-toggle span{position:absolute;left:0;right:0;height:2px;background:var(--text);border-radius:2px;transition:.3s ease;}
+.nav-toggle span:nth-child(1){top:0;}
+.nav-toggle span:nth-child(2){top:7px;}
+.nav-toggle span:nth-child(3){top:14px;}
+
+/* ============================= BUTTONS ============================= */
+.btn-primary{
+  position:relative;
+  display:inline-flex;align-items:center;justify-content:center;gap:.6rem;
+  padding:1rem 2rem;
+  border-radius:14px;
+  font-weight:600;font-size:1rem;
+  font-family:var(--font-display);
+  color:#04101f;
+  background:var(--grad-primary);
+  box-shadow:0 0 0 1px rgba(255,255,255,0.06) inset, 0 18px 50px -14px rgba(59,130,246,0.65);
+  overflow:hidden;
+  transition:transform .35s var(--ease), box-shadow .35s var(--ease);
+  isolation:isolate;
+}
+.btn-primary::before{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.55) 48%, transparent 66%);
+  transform:translateX(-120%);
+  transition:transform .8s var(--ease);
+  z-index:1;
+}
+.btn-primary:hover::before{transform:translateX(120%);}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 0 0 1px rgba(255,255,255,0.1) inset, 0 22px 60px -12px rgba(6,182,212,0.65);}
+.btn-primary span{position:relative;z-index:2;display:flex;align-items:center;gap:.6rem;}
+
+.btn-ghost{
+  display:inline-flex;align-items:center;gap:.5rem;
+  padding:.95rem 1.8rem;
+  border-radius:14px;
+  border:1px solid var(--border-strong);
+  color:var(--text);
+  font-weight:500;
+  font-size:.95rem;
+  background:rgba(255,255,255,0.02);
+  transition:border-color .3s ease, background .3s ease;
+}
+.btn-ghost:hover{border-color:rgba(148,163,184,0.5);background:rgba(255,255,255,0.05);}
+
+/* ============================= HERO ============================= */
+.hero{
+  padding:11rem 0 6rem;
+  min-height:100vh;
+  display:flex;align-items:center;
+  overflow:hidden;
+}
+.aurora{
+  position:absolute;inset:-20% -10% auto -10%;height:900px;
+  background:
+    radial-gradient(ellipse 50% 40% at 20% 20%, rgba(59,130,246,0.28), transparent 60%),
+    radial-gradient(ellipse 45% 35% at 80% 10%, rgba(168,85,247,0.25), transparent 60%),
+    radial-gradient(ellipse 40% 40% at 55% 35%, rgba(6,182,212,0.2), transparent 60%);
+  filter:blur(40px);
+  animation:auroraDrift 22s ease-in-out infinite alternate;
+  pointer-events:none;
+}
+@keyframes auroraDrift{
+  0%{transform:translate(0,0) scale(1);}
+  50%{transform:translate(2%,3%) scale(1.06);}
+  100%{transform:translate(-3%,-2%) scale(1.02);}
+}
+.orb{position:absolute;border-radius:50%;filter:blur(2px);opacity:.55;pointer-events:none;}
+.orb-1{width:340px;height:340px;top:8%;left:-6%;background:radial-gradient(circle at 30% 30%, rgba(59,130,246,0.55), transparent 70%);animation:floatOrb 14s ease-in-out infinite;}
+.orb-2{width:260px;height:260px;bottom:4%;right:2%;background:radial-gradient(circle at 30% 30%, rgba(168,85,247,0.5), transparent 70%);animation:floatOrb 18s ease-in-out infinite reverse;}
+.orb-3{width:200px;height:200px;top:38%;right:22%;background:radial-gradient(circle at 30% 30%, rgba(6,182,212,0.45), transparent 70%);animation:floatOrb 11s ease-in-out infinite;}
+@keyframes floatOrb{
+  0%,100%{transform:translate(0,0);}
+  50%{transform:translate(24px,-30px);}
+}
+
+.hero-inner{
+  position:relative;z-index:2;
+  max-width:1180px;margin:0 auto;padding:0 2rem;
+  display:grid;grid-template-columns:1.05fr .95fr;gap:3rem;
+  align-items:center;
+}
+.hero-copy .eyebrow{margin-bottom:1.6rem;}
+.hero h1{
+  font-family:var(--font-display);
+  font-size:clamp(2.4rem,4.6vw,3.9rem);
+  font-weight:700;
+  line-height:1.06;
+  letter-spacing:-0.03em;
+  margin-bottom:1.4rem;
+}
+.hero h1 .grad{
+  background:var(--grad-primary);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.hero .subhead{
+  font-size:1.08rem;
+  color:var(--text-dim);
+  max-width:520px;
+  margin-bottom:1.1rem;
+}
+.hero .cap-row{
+  display:flex;flex-wrap:wrap;gap:.5rem 1.4rem;
+  margin-bottom:2.4rem;
+}
+.hero .cap-row span{
+  font-size:.82rem;color:var(--text-faint);
+  display:flex;align-items:center;gap:.45rem;
+  font-family:var(--font-mono);
+}
+.hero .cap-row span::before{
+  content:"";width:4px;height:4px;border-radius:50%;background:var(--cyan);
+}
+
+.candidate-form{
+  display:flex;gap:.7rem;flex-wrap:wrap;
+  margin-bottom:1rem;
+}
+.candidate-form .field{
+  position:relative;flex:1;min-width:240px;
+}
+.candidate-form input,
+.candidate-form select{
+  width:100%;
+  padding:1rem 1.2rem 1rem 2.8rem;
+  border-radius:14px;
+  border:1px solid var(--border-strong);
+  background:rgba(15,23,42,0.6);
+  backdrop-filter:blur(10px);
+  color:var(--text);
+  font-family:var(--font-mono);
+  font-size:.92rem;
+  outline:none;
+  appearance:none;
+  -webkit-appearance:none;
+  cursor:pointer;
+  transition:border-color .3s ease, box-shadow .3s ease;
+}
+.candidate-form select{
+  padding-right:2.6rem;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position:right 1rem center;
+}
+.candidate-form select option{background:var(--surface);color:var(--text);}
+.candidate-form input::placeholder{color:var(--text-faint);}
+.candidate-form input:focus,
+.candidate-form select:focus{
+  border-color:rgba(6,182,212,0.6);
+  box-shadow:0 0 0 4px rgba(6,182,212,0.12);
+}
+.candidate-form .field::before{
+  content:"";position:absolute;left:1.1rem;top:50%;translate:0 -50%;
+  width:8px;height:8px;border-radius:2px;
+  background:var(--grad-primary);
+}
+.hero-note{font-size:.78rem;color:var(--text-faint);}
+
+/* voice orb visual */
+.hero-visual{
+  position:relative;
+  display:flex;align-items:center;justify-content:center;
+  height:420px;
+}
+.voice-orb{position:relative;width:280px;height:280px;display:flex;align-items:center;justify-content:center;}
+.voice-orb-ring{
+  position:absolute;border-radius:50%;
+  border:1px solid rgba(59,130,246,0.35);
+}
+.ring-1{inset:0;animation:ringPulse 4s ease-in-out infinite;}
+.ring-2{inset:26px;border-color:rgba(6,182,212,0.3);animation:ringPulse 4s ease-in-out infinite 1.3s;}
+@keyframes ringPulse{
+  0%{transform:scale(.94);opacity:.9;}
+  50%{transform:scale(1.05);opacity:.35;}
+  100%{transform:scale(.94);opacity:.9;}
+}
+.voice-orb-core{
+  position:absolute;inset:64px;border-radius:50%;
+  background:radial-gradient(circle at 32% 28%, #7fb6ff 0%, var(--blue) 34%, var(--purple) 78%, transparent 100%);
+  box-shadow:0 0 70px 10px rgba(59,130,246,0.55), 0 0 140px 40px rgba(168,85,247,0.25);
+  animation:corePulse 3.2s ease-in-out infinite;
+}
+@keyframes corePulse{
+  0%,100%{transform:scale(1);}
+  50%{transform:scale(1.06);}
+}
+.waveform{
+  position:absolute;bottom:14px;left:50%;translate:-50% 0;
+  display:flex;align-items:flex-end;gap:4px;
+  height:34px;
+  z-index:3;
+}
+.waveform span{
+  width:3px;border-radius:2px;
+  background:linear-gradient(180deg, var(--cyan), var(--blue));
+  animation:bar 1.1s ease-in-out infinite;
+}
+.waveform span:nth-child(1){height:10px;animation-delay:.0s;}
+.waveform span:nth-child(2){height:22px;animation-delay:.1s;}
+.waveform span:nth-child(3){height:32px;animation-delay:.2s;}
+.waveform span:nth-child(4){height:16px;animation-delay:.3s;}
+.waveform span:nth-child(5){height:26px;animation-delay:.4s;}
+.waveform span:nth-child(6){height:12px;animation-delay:.5s;}
+.waveform span:nth-child(7){height:20px;animation-delay:.6s;}
+@keyframes bar{
+  0%,100%{transform:scaleY(.5);opacity:.7;}
+  50%{transform:scaleY(1);opacity:1;}
+}
+.orbit-chip{
+  position:absolute;
+  display:flex;align-items:center;gap:.45rem;
+  padding:.5rem .8rem;
+  border-radius:999px;
+  border:1px solid var(--border-strong);
+  background:rgba(15,23,42,0.75);
+  backdrop-filter:blur(12px);
+  font-family:var(--font-mono);font-size:.72rem;color:var(--text-dim);
+  animation:chipFloat 6s ease-in-out infinite;
+  white-space:nowrap;
+}
+.chip-1{top:6%;left:-6%;animation-delay:0s;}
+.chip-2{bottom:10%;right:-8%;animation-delay:1.5s;}
+.chip-3{top:46%;right:-14%;animation-delay:3s;}
+@keyframes chipFloat{
+  0%,100%{transform:translateY(0);}
+  50%{transform:translateY(-10px);}
+}
+
+/* ============================= STATS ============================= */
+.stats{padding:4rem 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
+.stats-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:1.4rem;
+}
+.stat-card{
+  padding:1.8rem 1.6rem;
+  border-radius:18px;
+  border:1px solid var(--border);
+  background:linear-gradient(160deg, rgba(255,255,255,0.03), rgba(255,255,255,0.005));
+  position:relative;overflow:hidden;
+  transition:border-color .3s ease, transform .3s ease;
+}
+.stat-card:hover{border-color:rgba(59,130,246,0.4);transform:translateY(-3px);}
+.stat-card .glow{
+  position:absolute;top:-40%;right:-30%;width:140px;height:140px;border-radius:50%;
+  background:radial-gradient(circle, rgba(59,130,246,0.35), transparent 70%);
+  filter:blur(10px);
+}
+.stat-num{
+  font-family:var(--font-display);
+  font-size:2.5rem;font-weight:700;
+  background:var(--grad-primary);-webkit-background-clip:text;background-clip:text;color:transparent;
+  letter-spacing:-0.02em;
+  line-height:1;
+  margin-bottom:.6rem;
+}
+.stat-label{font-size:.88rem;color:var(--text-dim);}
+
+/* ============================= FEATURES ============================= */
+.features-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:1.4rem;
+}
+.feature-card{
+  padding:2rem 1.8rem;
+  border-radius:20px;
+  border:1px solid var(--border);
+  background:rgba(15,23,42,0.4);
+  backdrop-filter:blur(6px);
+  position:relative;overflow:hidden;
+  transition:transform .4s var(--ease), border-color .4s ease, background .4s ease;
+}
+.feature-card::before{
+  content:"";position:absolute;inset:0;border-radius:20px;
+  background:radial-gradient(240px circle at var(--mx,50%) var(--my,0%), rgba(59,130,246,0.14), transparent 60%);
+  opacity:0;transition:opacity .4s ease;
+  pointer-events:none;
+}
+.feature-card:hover::before{opacity:1;}
+.feature-card:hover{transform:translateY(-4px);border-color:rgba(148,163,184,0.35);background:rgba(15,23,42,0.65);}
+.feature-icon{
+  width:46px;height:46px;border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(150deg, rgba(59,130,246,0.18), rgba(168,85,247,0.14));
+  border:1px solid var(--border-strong);
+  margin-bottom:1.3rem;
+  color:var(--cyan);
+}
+.feature-card h3{
+  font-family:var(--font-display);
+  font-size:1.15rem;font-weight:600;
+  margin-bottom:.6rem;
+  letter-spacing:-0.01em;
+}
+.feature-card p{color:var(--text-dim);font-size:.92rem;}
+
+/* ============================= HOW IT WORKS ============================= */
+.workflow{
+  display:flex;justify-content:space-between;
+  position:relative;
+  gap:.5rem;
+}
+.workflow::before{
+  content:"";position:absolute;top:26px;left:4%;right:4%;height:1px;
+  background:linear-gradient(90deg, transparent, var(--border-strong) 8%, var(--border-strong) 92%, transparent);
+  z-index:0;
+}
+.workflow-step{
+  position:relative;z-index:1;
+  flex:1;display:flex;flex-direction:column;align-items:center;text-align:center;
+  padding:0 .6rem;
+}
+.step-dot{
+  width:52px;height:52px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--surface);
+  border:1px solid var(--border-strong);
+  font-family:var(--font-display);font-weight:600;font-size:.95rem;
+  color:var(--cyan);
+  margin-bottom:1.1rem;
+  box-shadow:0 0 0 6px var(--bg);
+  transition:border-color .3s ease, box-shadow .3s ease;
+}
+.workflow-step:hover .step-dot{
+  border-color:var(--cyan);
+  box-shadow:0 0 0 6px var(--bg), 0 0 22px rgba(6,182,212,0.5);
+}
+.workflow-step h4{font-family:var(--font-display);font-size:.98rem;font-weight:600;margin-bottom:.45rem;}
+.workflow-step p{font-size:.82rem;color:var(--text-dim);max-width:170px;}
+
+/* ============================= TECH STACK ============================= */
+.tech-grid{
+  display:flex;flex-wrap:wrap;gap:1rem;justify-content:center;
+}
+.tech-badge{
+  display:flex;align-items:center;gap:.7rem;
+  padding:.9rem 1.4rem;
+  border-radius:14px;
+  border:1px solid var(--border);
+  background:rgba(255,255,255,0.02);
+  font-family:var(--font-mono);font-size:.88rem;
+  color:var(--text-dim);
+  transition:border-color .3s ease, color .3s ease, transform .3s ease;
+}
+.tech-badge:hover{border-color:rgba(59,130,246,0.5);color:var(--text);transform:translateY(-2px);}
+.tech-dot{width:8px;height:8px;border-radius:50%;background:var(--grad-primary);}
+
+/* ============================= WHY DIFFERENT ============================= */
+.compare-wrap{
+  display:grid;grid-template-columns:1fr 1fr;gap:1.6rem;
+}
+.compare-card{
+  border-radius:22px;padding:2.2rem;
+  border:1px solid var(--border);
+}
+.compare-card.traditional{background:rgba(15,23,42,0.3);}
+.compare-card.agent{
+  background:linear-gradient(160deg, rgba(59,130,246,0.08), rgba(168,85,247,0.06));
+  border-color:rgba(59,130,246,0.35);
+  box-shadow:0 30px 80px -30px rgba(59,130,246,0.35);
+}
+.compare-card h3{
+  font-family:var(--font-display);font-size:1.2rem;margin-bottom:1.6rem;
+  display:flex;align-items:center;gap:.6rem;
+}
+.compare-card.agent h3{color:var(--text);}
+.compare-card.traditional h3{color:var(--text-dim);}
+.compare-row{
+  display:flex;align-items:center;gap:.9rem;
+  padding:.9rem 0;
+  border-top:1px solid var(--border);
+  font-size:.94rem;
+}
+.compare-row:first-of-type{border-top:none;}
+.mark{
+  width:22px;height:22px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;font-size:.7rem;
+}
+.mark.no{background:rgba(148,163,184,0.1);color:var(--text-faint);}
+.mark.yes{background:linear-gradient(135deg, var(--blue), var(--cyan));color:#04101f;}
+
+/* ============================= FINAL CTA ============================= */
+.final-cta-panel{
+  position:relative;
+  border-radius:32px;
+  padding:5rem 3rem;
+  text-align:center;
+  overflow:hidden;
+  border:1px solid var(--border-strong);
+  background:radial-gradient(ellipse 80% 100% at 50% 0%, rgba(59,130,246,0.16), transparent 70%), var(--surface);
+}
+.final-cta-panel .glow-a, .final-cta-panel .glow-b{
+  position:absolute;border-radius:50%;filter:blur(60px);pointer-events:none;
+}
+.final-cta-panel .glow-a{width:340px;height:340px;background:rgba(59,130,246,0.35);top:-140px;left:-80px;}
+.final-cta-panel .glow-b{width:300px;height:300px;background:rgba(168,85,247,0.3);bottom:-140px;right:-60px;}
+.final-cta-panel h2{
+  position:relative;z-index:1;
+  font-family:var(--font-display);
+  font-size:clamp(1.9rem,3.6vw,2.9rem);
+  font-weight:700;letter-spacing:-0.02em;
+  max-width:640px;margin:0 auto 1rem;
+}
+.final-cta-panel p{position:relative;z-index:1;color:var(--text-dim);margin-bottom:2.2rem;}
+.final-cta-panel .btn-primary{position:relative;z-index:1;}
+
+/* ============================= FOOTER ============================= */
+footer{padding:3.4rem 0 2.4rem;border-top:1px solid var(--border);}
+.footer-top{
+  display:flex;justify-content:space-between;align-items:center;
+  flex-wrap:wrap;gap:1.6rem;
+  margin-bottom:2.2rem;
+}
+.footer-tech{
+  display:flex;flex-wrap:wrap;gap:.5rem 1.4rem;
+}
+.footer-tech span{font-family:var(--font-mono);font-size:.78rem;color:var(--text-faint);}
+.footer-bottom{
+  display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;
+  font-size:.8rem;color:var(--text-faint);
+  padding-top:1.6rem;border-top:1px solid var(--border);
+}
+
+/* ============================= RESPONSIVE ============================= */
+@media (max-width:1024px){
+  .hero-inner{grid-template-columns:1fr;}
+  .hero-visual{height:320px;order:-1;}
+  .features-grid{grid-template-columns:repeat(2,1fr);}
+  .stats-grid{grid-template-columns:repeat(2,1fr);}
+  .workflow{flex-wrap:wrap;row-gap:2.4rem;}
+  .workflow::before{display:none;}
+  .workflow-step{flex:0 0 33%;}
+  .compare-wrap{grid-template-columns:1fr;}
+  .orbit-chip{display:none;}
+}
+@media (max-width:768px){
+  .nav-links{display:none;}
+  section{padding:4.5rem 0;}
+  .hero{padding-top:8rem;}
+  .features-grid{grid-template-columns:1fr;}
+  .stats-grid{grid-template-columns:repeat(2,1fr);}
+  .workflow-step{flex:0 0 50%;}
+  .candidate-form{flex-direction:column;}
+  .final-cta-panel{padding:3.4rem 1.6rem;}
+}
+@media (max-width:480px){
+  .container{padding:0 1.2rem;}
+  .stats-grid{grid-template-columns:1fr 1fr;}
+  .hero h1{font-size:2.1rem;}
+}
+
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important;}
+}
+</style>
+</head>
+<body>
+
+<!-- ============================= NAVBAR ============================= -->
+<nav class="navbar" id="navbar">
+  <div class="nav-inner">
+    <a class="logo" href="#hero"><span class="logo-orb"></span>AI Interview Agent</a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#how-it-works">How it works</a>
+      <a href="#tech">Technology</a>
+      <a href="#why">Why us</a>
+    </div>
+    <a class="nav-cta" href="#hero-cta">Start Interview</a>
+  </div>
+</nav>
+
+<!-- ============================= HERO ============================= -->
+<section class="hero" id="hero">
+  <div class="aurora"></div>
+  <div class="grid-overlay"></div>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+
+  <div class="hero-inner">
+    <div class="hero-copy">
+      <span class="eyebrow">Voice-native · Curriculum-aware</span>
+      <h1>Personalized AI Interviews<br>for <span class="grad">Modern Engineers</span></h1>
+      <p class="subhead">A voice-based AI interviewer that reasons like a hiring panel — retrieving your curriculum with RAG, reformulating questions with a multi-agent LangGraph pipeline, and evaluating answers in real time.</p>
+      <div class="cap-row">
+        <span>Voice AI</span>
+        <span>RAG Retrieval</span>
+        <span>Vector Search</span>
+        <span>Agentic Reasoning</span>
+        <span>Curriculum-Aware Evaluation</span>
+      </div>
+
+      <form class="candidate-form" id="hero-cta">
+        <div class="field">
+          <select id="candidateSelect" required>
+            <option value="" disabled selected>Select a candidate profile…</option>
+          </select>
+        </div>
+        <button class="btn-primary" type="submit"><span>Start Interview →</span></button>
+      </form>
+      <p class="hero-note">Judges select a candidate profile — the agent resolves curriculum context and begins in seconds.</p>
+    </div>
+
+    <div class="hero-visual">
+      <div class="orbit-chip chip-1">◍ Listening…</div>
+      <div class="orbit-chip chip-2">⌁ Evaluating response</div>
+      <div class="orbit-chip chip-3">⟡ Vector match 0.94</div>
+      <div class="voice-orb">
+        <div class="voice-orb-ring ring-1"></div>
+        <div class="voice-orb-ring ring-2"></div>
+        <div class="voice-orb-core"></div>
+        <div class="waveform">
+          <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= STATS ============================= -->
+<section class="stats">
+  <div class="container">
+    <div class="stats-grid">
+      <div class="stat-card reveal"><div class="glow"></div><div class="stat-num" data-count="31">0</div><div class="stat-label">Curriculum Days Covered</div></div>
+      <div class="stat-card reveal"><div class="glow"></div><div class="stat-num" data-count="8" data-suffix="+">0</div><div class="stat-label">Interview Questions per Session</div></div>
+      <div class="stat-card reveal"><div class="glow"></div><div class="stat-num" data-static="100%">100%</div><div class="stat-label">Voice Powered</div></div>
+      <div class="stat-card reveal"><div class="glow"></div><div class="stat-num" data-static="AI">AI</div><div class="stat-label">Real-Time Evaluation</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= FEATURES ============================= -->
+<section id="features">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="section-tag">Capabilities</span>
+      <h2>Everything a technical interviewer does — automated</h2>
+      <p>Six systems work together behind a single voice conversation.</p>
+    </div>
+    <div class="features-grid">
+
+      <div class="feature-card reveal">
+        <div class="feature-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1M12 18v4M9 22h6"/></svg>
+        </div>
+        <h3>Voice Interviews</h3>
+        <p>Natural, low-latency spoken conversation powered by Whisper speech-to-text — no typing, no forms, just dialogue.</p>
+      </div>
+
+      <div class="feature-card reveal">
+        <div class="feature-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M9 7h7M9 11h7"/></svg>
+        </div>
+        <h3>Curriculum-Aware Questioning</h3>
+        <p>Questions are grounded in the exact 31-day curriculum the candidate studied — never generic, always relevant.</p>
+      </div>
+
+      <div class="feature-card reveal">
+        <div class="feature-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+        </div>
+        <h3>RAG Powered Retrieval</h3>
+        <p>A vector database surfaces the most relevant curriculum context before every question is generated.</p>
+      </div>
+
+      <div class="feature-card reveal">
+        <div class="feature-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="6" r="2.4"/><circle cx="12" cy="18" r="2.4"/><path d="M8 7.4 10.5 16M16 7.4 13.5 16M8.4 6h7.2"/></svg>
+        </div>
+        <h3>Multi-Agent Reasoning</h3>
+        <p>A LangGraph pipeline of specialist agents plans, asks, listens, and scores — each with a distinct role.</p>
+      </div>
+
+      <div class="feature-card reveal">
+        <div class="feature-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12a8 8 0 1 1 3 6.2"/><path d="M4 20v-5h5"/></svg>
+        </div>
+        <h3>Adaptive Follow-Up Questions</h3>
+        <p>The agent probes deeper on weak answers and moves on quickly when a candidate demonstrates mastery.</p>
+      </div>
+
+      <div class="feature-card reveal">
+        <div class="feature-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        </div>
+        <h3>Technical Evaluation Engine</h3>
+        <p>Every response is scored against rubric criteria in real time, producing a structured feedback report.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ============================= HOW IT WORKS ============================= -->
+<section id="how-it-works">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="section-tag">Pipeline</span>
+      <h2>From candidate profile to feedback report</h2>
+      <p>One continuous agentic pipeline, six stages, zero manual scheduling.</p>
+    </div>
+
+    <div class="workflow">
+      <div class="workflow-step reveal"><div class="step-dot">01</div><h4>Candidate Profile</h4><p>Candidate ID resolves identity, role, and target curriculum.</p></div>
+      <div class="workflow-step reveal"><div class="step-dot">02</div><h4>Curriculum Retrieval</h4><p>Vector search pulls relevant topics from the knowledge base.</p></div>
+      <div class="workflow-step reveal"><div class="step-dot">03</div><h4>AI Interview Generation</h4><p>Agents draft a personalized question sequence.</p></div>
+      <div class="workflow-step reveal"><div class="step-dot">04</div><h4>Voice Interview</h4><p>Whisper transcribes; Gemini reasons; the conversation flows naturally.</p></div>
+      <div class="workflow-step reveal"><div class="step-dot">05</div><h4>Evaluation Engine</h4><p>Answers are scored against curriculum-aligned rubrics.</p></div>
+      <div class="workflow-step reveal"><div class="step-dot">06</div><h4>Feedback Report</h4><p>A structured report is generated for candidate and reviewer.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= TECH STACK ============================= -->
+<section id="tech">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="section-tag">Under the hood</span>
+      <h2>Built on a modern AI infrastructure stack</h2>
+      <p>Every layer chosen for latency, retrieval quality, and reasoning depth.</p>
+    </div>
+    <div class="tech-grid reveal">
+      <div class="tech-badge"><span class="tech-dot"></span>Gemini</div>
+      <div class="tech-badge"><span class="tech-dot"></span>LangGraph</div>
+      <div class="tech-badge"><span class="tech-dot"></span>Qdrant</div>
+      <div class="tech-badge"><span class="tech-dot"></span>Whisper</div>
+      <div class="tech-badge"><span class="tech-dot"></span>Flask</div>
+      <div class="tech-badge"><span class="tech-dot"></span>Vercel</div>
+      <div class="tech-badge"><span class="tech-dot"></span>BGE Embeddings</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= WHY DIFFERENT ============================= -->
+<section id="why">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="section-tag">Comparison</span>
+      <h2>Why it's different</h2>
+      <p>Traditional mock interviews follow a script. AI Interview Agent follows the candidate.</p>
+    </div>
+
+    <div class="compare-wrap">
+      <div class="compare-card traditional reveal">
+        <h3>Traditional Interviews</h3>
+        <div class="compare-row"><span class="mark no">✕</span>Generic, one-size-fits-all questions</div>
+        <div class="compare-row"><span class="mark no">✕</span>Fixed question order regardless of answers</div>
+        <div class="compare-row"><span class="mark no">✕</span>No awareness of what was actually studied</div>
+        <div class="compare-row"><span class="mark no">✕</span>Manual, delayed evaluation</div>
+        <div class="compare-row"><span class="mark no">✕</span>Text-based or scheduled human calls</div>
+      </div>
+      <div class="compare-card agent reveal">
+        <h3>AI Interview Agent</h3>
+        <div class="compare-row"><span class="mark yes">✓</span>Personalized to each candidate's profile</div>
+        <div class="compare-row"><span class="mark yes">✓</span>Adaptive questioning based on live responses</div>
+        <div class="compare-row"><span class="mark yes">✓</span>Curriculum-aware, grounded in real material</div>
+        <div class="compare-row"><span class="mark yes">✓</span>Automated evaluation in real time</div>
+        <div class="compare-row"><span class="mark yes">✓</span>Natural voice interaction, on demand</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= FINAL CTA ============================= -->
+<section id="cta">
+  <div class="container">
+    <div class="final-cta-panel reveal">
+      <div class="glow-a"></div>
+      <div class="glow-b"></div>
+      <h2>Ready to experience the future of technical interviews?</h2>
+      <p>Start a live voice interview with your personalized AI agent in under a minute.</p>
+      <a class="btn-primary" href="#hero-cta"><span>Launch Interview →</span></a>
+    </div>
+  </div>
+</section>
+
+<!-- ============================= FOOTER ============================= -->
+<footer>
+  <div class="container">
+    <div class="footer-top">
+      <a class="logo" href="#hero"><span class="logo-orb"></span>AI Interview Agent</a>
+      <div class="footer-tech">
+        <span>Gemini</span><span>·</span><span>LangGraph</span><span>·</span><span>Qdrant</span><span>·</span><span>Whisper</span><span>·</span><span>Flask</span><span>·</span><span>Vercel</span>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 AI Interview Agent. All rights reserved.</span>
+      <span>Voice-native technical interviewing, built for engineers.</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ============================= NAVBAR SCROLL STATE =============================
+const navbar = document.getElementById('navbar');
+window.addEventListener('scroll', () => {
+  navbar.classList.toggle('scrolled', window.scrollY > 20);
+}, { passive: true });
+
+// ============================= SCROLL REVEAL =============================
+const revealEls = document.querySelectorAll('.reveal');
+const io = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('in');
+      io.unobserve(entry.target);
+    }
+  });
+}, { threshold: 0.15, rootMargin: '0px 0px -60px 0px' });
+revealEls.forEach(el => io.observe(el));
+
+// ============================= STAT COUNTERS =============================
+const counters = document.querySelectorAll('.stat-num[data-count]');
+const countIO = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (!entry.isIntersecting) return;
+    const el = entry.target;
+    const target = parseInt(el.dataset.count, 10);
+    const suffix = el.dataset.suffix || '';
+    const duration = 1200;
+    const start = performance.now();
+    function tick(now) {
+      const progress = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      el.textContent = Math.round(eased * target) + suffix;
+      if (progress < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+    countIO.unobserve(el);
+  });
+}, { threshold: 0.5 });
+counters.forEach(el => countIO.observe(el));
+
+// ============================= FEATURE CARD CURSOR GLOW =============================
+document.querySelectorAll('.feature-card').forEach(card => {
+  card.addEventListener('mousemove', (e) => {
+    const rect = card.getBoundingClientRect();
+    card.style.setProperty('--mx', `${e.clientX - rect.left}px`);
+    card.style.setProperty('--my', `${e.clientY - rect.top}px`);
+  });
+});
+
+// ============================= CANDIDATE PROFILES =============================
+// Hackathon-provided candidate profiles. Replace with a fetched roster if the
+// backend exposes a /api/candidates endpoint — the shape below is what
+// interview.html expects to find keyed by candidateId.
+let CANDIDATE_PROFILES = [
+  { id: 'CAND-4471', name: 'Ariana Foster', role: 'AI/ML Engineer Track', experience: '2 yrs', curriculumDays: [7, 8, 15, 22] },
+  { id: 'CAND-5820', name: 'Rohan Mehta', role: 'Full-Stack + GenAI Track', experience: '1 yr', curriculumDays: [5, 12, 19, 26] },
+  { id: 'CAND-6193', name: 'Priya Nair', role: 'Applied NLP Track', experience: '3 yrs', curriculumDays: [3, 10, 18, 24] },
+  { id: 'CAND-7305', name: 'Daniel Osei', role: 'Computer Vision Track', experience: '2 yrs', curriculumDays: [6, 14, 21, 29] },
+  { id: 'CAND-8047', name: 'Meera Iyer', role: 'Agentic AI / LangGraph Track', experience: '4 yrs', curriculumDays: [7, 15, 22, 30] },
+];
+
+// ============================= CANDIDATE SELECT ============================
+const candidateSelect = document.getElementById('candidateSelect');
+CANDIDATE_PROFILES.forEach((c) => {
+  const opt = document.createElement('option');
+  opt.value = c.id;
+  opt.textContent = `${c.name} — ${c.id}`;
+  candidateSelect.appendChild(opt);
+});
+
+// Replace display-only demo profiles with the complete backend records.
+fetch('/api/candidates')
+  .then((response) => {
+    if (!response.ok) throw new Error('Could not load candidates');
+    return response.json();
+  })
+  .then((candidates) => {
+    CANDIDATE_PROFILES = candidates;
+    candidateSelect.innerHTML = '<option value="" disabled selected>Select a candidate profile…</option>';
+    candidates.forEach((candidate) => {
+      const member = candidate.member || {};
+      const option = document.createElement('option');
+      option.value = member.id;
+      option.textContent = `${member.name || 'Candidate'} — ${member.id || ''}`;
+      candidateSelect.appendChild(option);
+    });
+  })
+  .catch(() => {
+    candidateSelect.disabled = true;
+    candidateSelect.innerHTML = '<option value="">Unable to load candidates — start the Flask server.</option>';
+  });
+
+// ============================= HERO FORM =============================
+document.querySelector('.candidate-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const selectedCandidate = candidateSelect.value;
+  if (!selectedCandidate) {
+    candidateSelect.focus();
+    return;
+  }
+
+  const btn = e.target.querySelector('.btn-primary span');
+  const original = btn.textContent;
+  btn.textContent = 'Connecting…';
+
+  // ---- session bootstrap ----
+  const sessionId = crypto.randomUUID();
+  localStorage.setItem('sessionId', sessionId);
+  localStorage.setItem('candidateId', selectedCandidate);
+  const profile = CANDIDATE_PROFILES.find((c) => (c.member ? c.member.id : c.id) === selectedCandidate);
+  if (profile) {
+    localStorage.setItem('candidateProfile', JSON.stringify(profile));
+  }
+
+  setTimeout(() => {
+    btn.textContent = 'Session Ready ✓';
+    setTimeout(() => {
+      window.location.href = 'interview.html';
+    }, 500);
+  }, 900);
+});
+
+// ============================= SUBTLE PARALLAX ON HERO ORBS =============================
+const hero = document.getElementById('hero');
+hero.addEventListener('mousemove', (e) => {
+  const { innerWidth: w, innerHeight: h } = window;
+  const x = (e.clientX / w - 0.5) * 2;
+  const y = (e.clientY / h - 0.5) * 2;
+  document.querySelectorAll('.orb').forEach((orb, i) => {
+    const depth = (i + 1) * 6;
+    orb.style.transform = `translate(${x * depth}px, ${y * depth}px)`;
+  });
+}, { passive: true });
+</script>
+
+</body>
+</html>
