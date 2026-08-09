@@ -226,9 +226,10 @@ Return ONLY JSON:
         start = response.find("{")
         end = response.rfind("}") + 1
 
-        data = json.loads(
-            response[start:end]
-        )
+        if start != -1 and end > start:
+            data = json.loads(response[start:end])
+        else:
+            raise ValueError("Invalid JSON response format from model.")
 
         return {
 
