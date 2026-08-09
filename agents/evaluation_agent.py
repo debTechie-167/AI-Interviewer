@@ -1,28 +1,24 @@
 # agents/evaluation_agent.py
 
 import json
+from typing import List, Dict
 
-from graph.state import (
-    Question,
-    Answer,
-    Evaluation
-)
-
-from services.gemini_service import (
-    gemini_service
-)
+from graph.state import Question, Answer, Evaluation
+from services.gemini_service import gemini_service
 
 
 def run_evaluation_agent(
     question: Question,
     answer: Answer,
-    rag_context: list[str],
-    candidate: dict
+    rag_context: List[str],
+    candidate: Dict,
 ) -> Evaluation:
+    """Run the evaluation agent and return an `Evaluation` dict.
 
-    context_text = "\n".join(
-        rag_context[:5]
-    )
+    Logic and defaults are preserved from the original implementation.
+    """
+
+    context_text = "\n".join(rag_context[:5])
 
     prompt = f"""
 You are an expert AI interview evaluator.
@@ -63,13 +59,7 @@ Return ONLY JSON.
 """
 
     try:
-
-        response = (
-            gemini_service.generate_text(
-                prompt=prompt,
-                temperature=0.2
-            )
-        )
+        response = gemini_service.generate_text(prompt=prompt, temperature=0.2)
 
         start = response.find("{")
         end = response.rfind("}") + 1
@@ -80,105 +70,27 @@ Return ONLY JSON.
             raise ValueError("Invalid JSON response format from model.")
 
         return {
-
-            "question_id":
-                question["question_id"],
-
-            "score":
-                float(
-                    data.get(
-                        "score",
-                        7.0
-                    )
-                ),
-
-            "technical_score":
-                float(
-                    data.get(
-                        "technical_score",
-                        7.0
-                    )
-                ),
-
-            "communication_score":
-                float(
-                    data.get(
-                        "communication_score",
-                        7.0
-                    )
-                ),
-
-            "reasoning_score":
-                float(
-                    data.get(
-                        "reasoning_score",
-                        7.0
-                    )
-                ),
-
-            "strengths":
-                data.get(
-                    "strengths",
-                    []
-                ),
-
-            "weaknesses":
-                data.get(
-                    "weaknesses",
-                    []
-                ),
-
-            "feedback":
-                data.get(
-                    "feedback",
-                    ""
-                )
+            "question_id": question["question_id"],
+            "score": float(data.get("score", 7.0)),
+            "technical_score": float(data.get("technical_score", 7.0)),
+            "communication_score": float(data.get("communication_score", 7.0)),
+            "reasoning_score": float(data.get("reasoning_score", 7.0)),
+            "strengths": data.get("strengths", []),
+            "weaknesses": data.get("weaknesses", []),
+            "feedback": data.get("feedback", ""),
         }
 
     except Exception:
-
-        answer_length = len(
-            answer["transcript"]
-        )
-
-        fallback_score = min(
-            8.0,
-            max(
-                4.0,
-                answer_length / 40
-            )
-        )
+        answer_length = len(answer["transcript"])
+        fallback_score = min(8.0, max(4.0, answer_length / 40))
 
         return {
-
-            "question_id":
-                question["question_id"],
-
-            "score":
-                fallback_score,
-
-            "technical_score":
-                fallback_score,
-
-            "communication_score":
-                fallback_score,
-
-            "reasoning_score":
-                fallback_score,
-
-            "strengths":
-                [
-                    "Attempted the question"
-                ],
-
-            "weaknesses":
-                [
-                    "Evaluation fallback used"
-                ],
-
-            "feedback":
-                (
-                    "Unable to perform "
-                    "full AI evaluation."
-                )
+            "question_id": question["question_id"],
+            "score": fallback_score,
+            "technical_score": fallback_score,
+            "communication_score": fallback_score,
+            "reasoning_score": fallback_score,
+            "strengths": ["Attempted the question"],
+            "weaknesses": ["Evaluation fallback used"],
+            "feedback": "Unable to perform full AI evaluation.",
         }
