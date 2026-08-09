@@ -19,6 +19,7 @@ def run_evaluation_agent(
     """
 
     context_text = "\n".join(rag_context[:5])
+    _ = candidate  # keep parameter referenced to avoid unused-variable lint
 
     prompt = f"""
 You are an expert AI interview evaluator.
@@ -78,6 +79,7 @@ Return ONLY JSON.
             "strengths": data.get("strengths", []),
             "weaknesses": data.get("weaknesses", []),
             "feedback": data.get("feedback", ""),
+            "confidence_score": float(data.get("confidence_score", 0.0)),
         }
 
     except Exception:
@@ -93,4 +95,5 @@ Return ONLY JSON.
             "strengths": ["Attempted the question"],
             "weaknesses": ["Evaluation fallback used"],
             "feedback": "Unable to perform full AI evaluation.",
+            "confidence_score": fallback_score,
         }
