@@ -1,4 +1,3 @@
-
 import json
 from pathlib import Path
 
@@ -11,8 +10,6 @@ DATA_DIR = BASE_DIR / "data"
 load_dotenv(BASE_DIR / ".env")
 
 from api.feedback import feedback_bp
-
-
 
 from api.interview import (
     interview_bp
@@ -29,9 +26,15 @@ app.register_blueprint(
 app.register_blueprint(feedback_bp)
 
 
-
 @app.get("/")
 def index():
+    return send_from_directory(FRONTEND_DIR, "index.html")
+
+@app.get("/<path:path>")
+def serve_static_pages(path):
+    if (FRONTEND_DIR / path).exists():
+        return send_from_directory(FRONTEND_DIR, path)
+    # Fallback to index.html for client-side routing protection
     return send_from_directory(FRONTEND_DIR, "index.html")
 
 
